@@ -51,7 +51,11 @@ def syntax_match(code1, code2, lang):
 
     return code1 == code2
 
-def process_problem_subset(problems, completions):
+import concurrent.futures
+import math
+from tqdm import tqdm
+
+def process_problem_subset(problems, completions, progress_bar):
     partial_results = []
     pass_cnt = 0
 
@@ -94,6 +98,7 @@ def process_problem_subset(problems, completions):
                 "task_id": problem["task_id"], "result": result, "passed": passed, "check_result": 0
             }
         )
+        progress_bar.update(1)  # Update progress bar after processing a problem
     
     return partial_results, pass_cnt
 
@@ -104,7 +109,7 @@ def main():
     parser.add_argument("completion_path", type=str)
     parser.add_argument("output_path", type=str)
     parser.add_argument("--port", type=int, default=5000)
-    parser.add_argument("--num_threads", type=int, default=4)
+    parser.add_argument("--num_threads", type=int, default=32)
     args = parser.parse_args()
 
     build_execeval(args)
@@ -117,15 +122,20 @@ def main():
     chunk_size = math.ceil(total_problems / args.num_threads)
     problem_chunks = [problems[i:i + chunk_size] for i in range(0, total_problems, chunk_size)]
 
-    # Use ThreadPoolExecutor for multithreading
-    results = []
-    pass_cnt = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_threads) as executor:
-        futures = {executor.submit(process_problem_subset, chunk, completions): chunk for chunk in problem_chunks}
-        for future in concurrent.futures.as_completed(futures):
-            partial_results, partial_pass_cnt = future.result()
-            results.extend(partial_results)
-            pass_cnt += partial_pass_cnt
+    # Set up a shared progress bar
+    with tqdm(total=total_problems, desc="Processing", unit="problem") as progress_bar:
+        # Use ThreadPoolExecutor for multithreading
+        results = []
+        pass_cnt = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_threads) as executor:
+            futures = {
+                executor.submit(process_problem_subset, chunk, completions, progress_bar): chunk
+                for chunk in problem_chunks
+            }
+            for future in concurrent.futures.as_completed(futures):
+                partial_results, partial_pass_cnt = future.result()
+                results.extend(partial_results)
+                pass_cnt += partial_pass_cnt
 
     # Aggregate and write final results
     total = total_problems
