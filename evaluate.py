@@ -10,6 +10,8 @@ from ast_utils import ErrorCheckVisitor, get_parser
 from data_utils import load_dataset, stream_jsonl
 from exec_utils import build_execeval, run_test
 
+STOP_WORDS = ["<|endoftext|>", "<|filename|>", "<file_sep>"]
+FIM_MIDDLE = '<fim_middle>'
 
 def check_syntax(code):
     parser = get_parser("python")
@@ -67,6 +69,14 @@ def main():
             passed = False
         else:
             completion = completions[problem["task_id"]]
+            completion_output = completion["output"]
+            completion_start = completion_output.find(FIM_MIDDLE) + len(FIM_MIDDLE)
+            completion_end = len(completion_output)
+            for stop_word in STOP_WORDS:
+                if stop_word in completion_output:
+                    completion_end = min(completion_end, completion_output.find(stop_word))
+            completion_output = completion_output[completion_start:completion_end]
+            completion['completion'] = completion_output
             if "unit_tests" in problem and problem["unit_tests"]:
                 if completion['completion'] == problem["ground_truth"]:
                     result = "PASSED"
