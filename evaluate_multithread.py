@@ -86,19 +86,19 @@ def process_problem_subset(problems, completions, progress_bar):
                 else:
                     result = "WRONG_ANSWER"
                     passed = False
-        if not completion['completion'].strip() and not passed:
-            result = "EMPTY"
-        if problem["lang"] == "python" and not passed:
-            full_code = problem['eval_prompt'].replace("{{completion}}", completion['completion'])
-            if "unit_tests" in problem and not check_syntax(full_code):
-                result = "COMPILATION_ERROR"
-        pass_cnt += int(passed)
-        partial_results.append(
-            {
-                "task_id": problem["task_id"], "result": result, "passed": passed, "check_result": 0
-            }
-        )
-        progress_bar.update(1)  # Update progress bar after processing a problem
+            if not completion['completion'].strip() and not passed:
+                result = "EMPTY"
+            if problem["lang"] == "python" and not passed:
+                full_code = problem['eval_prompt'].replace("{{completion}}", completion['completion'])
+                if "unit_tests" in problem and not check_syntax(full_code):
+                    result = "COMPILATION_ERROR"
+            pass_cnt += int(passed)
+            partial_results.append(
+                {
+                    "task_id": problem["task_id"], "result": result, "passed": passed, "check_result": 0
+                }
+            )
+            progress_bar.update(1)  # Update progress bar after processing a problem
     
     return partial_results, pass_cnt
 
@@ -107,7 +107,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("completion_type", type=str)
     parser.add_argument("completion_path", type=str)
-    parser.add_argument("output_path", type=str)
+    # parser.add_argument("output_path", type=str)
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--num_threads", type=int, default=32)
     args = parser.parse_args()
@@ -115,7 +115,7 @@ def main():
     build_execeval(args)
 
     completions = {completion["task_id"]: completion for completion in stream_jsonl(args.completion_path)}
-    problems = load_dataset(args.completion_type)[:1000]
+    problems = load_dataset(args.completion_type)
     total_problems = len(problems)
 
     # Split the dataset into chunks for threads
@@ -141,9 +141,19 @@ def main():
     total = total_problems
     print(f"Pass {pass_cnt} / Total {total}")
     print(f"Pass@1: {pass_cnt / total * 100 :.04f}%")
-    with open(args.output_path, "w", encoding="utf-8") as f:
+    output_path = args.completion_path[:args.completion_path.find("output")] + "results.jsonl"
+    with open(output_path, "w", encoding="utf-8") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
+    eval = {
+        "pass": pass_cnt,
+        "total": total,
+        "pass@1": pass_cnt / total * 100,
+    }
+    results_file = args.completion_path[:args.completion_path.find("output")] + "eval.jsonl"
+    with open(results_file, "w") as f:
+        f.write(json.dumps(eval, indent=2))
+    print(f"Results saved to {results_file}")
 
 
 if __name__ == '__main__':

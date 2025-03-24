@@ -93,5 +93,5 @@ if __name__ == "__main__":
             input['text'] = apply_prompt(sample)
             input['stop_words'] = STOP_WORDS
             inputs.append(input)
-    write_jsonl(f"data/SAFIM_{args.completion_type}-Inputs.json", inputs)
+    write_jsonl(f"data/starcoder/SAFIM_{args.completion_type}-Inputs.json", inputs)
     print(f'Wrote tasks to data/SAFIM_{args.completion_type}-Inputs.json')
