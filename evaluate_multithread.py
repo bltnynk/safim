@@ -181,6 +181,8 @@ def main():
                 total.extend(partial_total)
                 correct.extend(partial_correct)
 
+    total = np.array(total)
+    correct = np.array(correct)
     ks = [1, 5, 10, 20, 50, 100]
     pass_at_k = {
         f"pass@{k}": estimate_pass_at_k(total, correct, k).mean() for k in ks if (total >= k).all()
